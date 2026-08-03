@@ -150,6 +150,58 @@ input:focus,select:focus,button:focus-visible,.opcion:focus-visible{outline:2px 
 @keyframes latido{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.13);opacity:.85}}
 @media (prefers-reduced-motion:reduce){
   .hito.oro .hito-tit,.hito-medalla,.hito-estrellas i,.hito.grande::after{animation:none}}
+
+/* ---------- La tarjeta entra, no aparece ---------- */
+.tarjeta{animation:cartaEntra .34s cubic-bezier(.16,.84,.28,1) both}
+@keyframes cartaEntra{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+.tarjeta h3{animation:subeTexto .38s .04s cubic-bezier(.16,.84,.28,1) both}
+.tarjeta>p{animation:subeTexto .38s .10s cubic-bezier(.16,.84,.28,1) both}
+.tarjeta .riesgo{animation:subeTexto .38s .15s cubic-bezier(.16,.84,.28,1) both}
+@keyframes subeTexto{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+/* las opciones entran escalonadas */
+.tarjeta .opcion{animation:subeTexto .34s both}
+.tarjeta .opcion:nth-of-type(1){animation-delay:.17s}
+.tarjeta .opcion:nth-of-type(2){animation-delay:.23s}
+.tarjeta .opcion:nth-of-type(3){animation-delay:.29s}
+.tarjeta .opcion:nth-of-type(4){animation-delay:.35s}
+.tarjeta .btn{animation:subeTexto .34s .2s both}
+.opcion:active{transform:scale(.985)}
+/* los números suben al aparecer */
+.celda .val{animation:valorEntra .5s .12s cubic-bezier(.16,.84,.28,1) both}
+@keyframes valorEntra{from{opacity:0;transform:translateY(7px) scale(.94)}to{opacity:1;transform:none}}
+/* las barras se llenan en vez de aparecer llenas */
+.barra-fill{animation:llenaBarra .7s .1s cubic-bezier(.22,.72,.24,1) both;transform-origin:left center}
+@keyframes llenaBarra{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* los chips de efecto entran uno detrás de otro */
+.efectos .chip{animation:chipEntra .3s both}
+.efectos .chip:nth-child(1){animation-delay:.20s}
+.efectos .chip:nth-child(2){animation-delay:.26s}
+.efectos .chip:nth-child(3){animation-delay:.32s}
+.efectos .chip:nth-child(4){animation-delay:.38s}
+.efectos .chip:nth-child(n+5){animation-delay:.44s}
+@keyframes chipEntra{from{opacity:0;transform:translateY(6px) scale(.92)}to{opacity:1;transform:none}}
+
+/* ---------- Menos deslizar: la tarjeta ocupa la pantalla ---------- */
+#zona-tarjetas{min-height:60vh}
+.tarjeta{max-height:none}
+/* tablas largas con altura limitada y scroll propio, para no alargar la página */
+.tabla-scroll{max-height:246px;overflow-y:auto;overflow-x:auto;
+  border:1px solid var(--linea);border-radius:4px}
+.tabla-scroll::-webkit-scrollbar{width:5px;height:5px}
+.tabla-scroll::-webkit-scrollbar-thumb{background:rgba(241,244,236,.18);border-radius:3px}
+.tabla-scroll table{margin:0}
+.tabla-scroll thead th{position:sticky;top:0;background:#0B1F16;z-index:2}
+/* bloques que se pueden plegar para no ocupar */
+.plegable>summary{cursor:pointer;list-style:none;padding:9px 0;
+  font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--cal2);border-top:1px solid var(--linea);display:flex;justify-content:space-between;align-items:center}
+.plegable>summary::-webkit-details-marker{display:none}
+.plegable>summary::after{content:'+';font-size:15px;color:var(--ambar)}
+.plegable[open]>summary::after{content:'\2212'}
+.plegable>summary:hover{color:var(--ambar)}
+@media (prefers-reduced-motion:reduce){
+  .tarjeta,.tarjeta h3,.tarjeta>p,.tarjeta .riesgo,.tarjeta .opcion,.tarjeta .btn,
+  .celda .val,.barra-fill,.efectos .chip{animation:none}}
 @media (prefers-reduced-motion:reduce){.hito-tit,.hito-sub{animation:none}}
 .tabla{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:11.5px;margin-top:8px}
 .tabla th{text-align:left;color:var(--cal2);font-weight:400;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:6px 4px;border-bottom:1px solid var(--linea)}
@@ -1897,15 +1949,37 @@ const MOMENTOS={
   mal:'Fuera, alta, o la saca alguien. Se acaba y te toca vivir con eso.'}};
 
 /* El camino hasta la final: rondas de verdad, con rivales y marcadores */
-function caminoFinal(comp,club,prestigio){
+function caminoFinal(comp,club,prestigio,ligaId){
   const esCopa=comp==='la Copa';
   const rondas=esCopa?['Segunda ronda','Tercera ronda','Octavos','Cuartos','Semifinal']
     :['Fase de grupos','Dieciseisavos','Octavos','Cuartos','Semifinal'];
-  const pool=todosLosClubes().filter(function(c){return c.n!==club;});
+  /* La Copa del Rey no la juega el Botafogo: en copa nacional solo entran
+     clubes del mismo país, de todas sus divisiones. En Europa, solo clubes
+     del mismo continente. */
+  const lg=LIGA[ligaId||(S&&S.ligaId)||'esp1']||LIGA.esp1;
+  let pool;
+  if(esCopa){
+    pool=[];
+    LIGAS.forEach(function(L){
+      if(L.pais!==lg.pais)return;
+      L.clubes.forEach(function(c){if(c.n!==club)pool.push({n:c.n,p:prestigioDe(c.n,c.p),liga:L});});
+    });
+  } else {
+    pool=[];
+    LIGAS.forEach(function(L){
+      if(L.cont!==lg.cont||L.nivel>2)return;
+      L.clubes.forEach(function(c){if(c.n!==club)pool.push({n:c.n,p:prestigioDe(c.n,c.p),liga:L});});
+    });
+  }
+  if(pool.length<6)pool=todosLosClubes().filter(function(c){return c.n!==club;});
   const out=[];
   rondas.forEach(function(r,i){
-    const objetivo=clamp(prestigio-16+i*5+rnd(-7,7),24,97);
-    let cand=pool.filter(function(c){return Math.abs(c.p-objetivo)<=7;});
+    /* En copa las primeras rondas son contra equipos de abajo; en Europa
+       el nivel arranca alto y sube. */
+    const objetivo=esCopa?clamp(prestigio-30+i*7+rnd(-6,6),18,97)
+      :clamp(prestigio-12+i*4+rnd(-6,6),40,97);
+    let cand=pool.filter(function(c){return Math.abs(c.p-objetivo)<=8;});
+    if(!cand.length)cand=pool.filter(function(c){return Math.abs(c.p-objetivo)<=18;});
     if(!cand.length)cand=pool;
     const riv=pick(cand);
     const dif=(prestigio-riv.p)/9;
@@ -1934,7 +2008,7 @@ function panelCamino(cam){
     '<p class="aviso">Cinco eliminatorias para llegar a una noche. Lo que decidas ahora borra o confirma todo lo anterior.</p></div>';
 }
 function cartaCamino(comp){
-  const cam=caminoFinal(comp,S.club,S.clubPrestigio);
+  const cam=caminoFinal(comp,S.club,S.clubPrestigio,S.ligaId);
   const duros=cam.filter(function(r){return r.apretado;}).length;
   return{eyebrow:'Final de '+comp,tipo:'pos',
     titulo:'Estáis en la final',
@@ -2051,9 +2125,12 @@ function hayFinal(){
   const liga=LIGA[S.ligaId]||LIGA.esp1;
   const f=estimaTramo();
   if(f<.45)return null;                       /* si no juegas, no decides nada */
-  const europa=!!(liga.cont&&S.clubPrestigio>=72);
-  if(europa&&chance(clamp((S.clubPrestigio-72)/26*.26,0,.26)))return liga.cont;
-  if(chance(clamp(.06+(S.clubPrestigio-55)/45*.14,.04,.20)))return 'la Copa';
+  /* Antes casi nunca había torneo y las eliminatorias no se veían. Ahora un
+     club europeo grande juega Europa casi todos los años, y la copa nacional
+     la juega todo el mundo: lo que se decide es hasta dónde llegas. */
+  const europa=!!(liga.cont&&S.clubPrestigio>=68);
+  if(europa&&chance(clamp(.30+(S.clubPrestigio-68)/30*.55,.30,.88)))return liga.cont;
+  if(chance(clamp(.34+(S.clubPrestigio-45)/50*.30,.30,.66)))return 'la Copa';
   return null;
 }
 
@@ -3291,6 +3368,191 @@ function cartaPretemporada(){
             ' y tu media queda en '+Math.round(S.media)+'.',ef:ef};
         }};
     })};
+}
+
+
+/* =====================================================================
+   ELIMINATORIAS JUGABLES — pasar de ronda depende de ti
+   ---------------------------------------------------------------------
+   En los torneos que importan no se simula el camino entero: en cada
+   eliminatoria hay una jugada y una decisión. Tres opciones, una buena,
+   y si fallas puedes quedarte fuera ahí mismo.
+   ===================================================================== */
+const JUGADAS_RONDA=[
+ {n:'El córner del descuento',rol:'campo',
+  tx:'Noventa y tres minutos y un córner. Sube hasta el portero. Es la última que vais a tocar.',
+  opts:['Atacar el primer palo','Esperar en la frontal','Quedarte al segundo palo']},
+ {n:'Contra a la carrera',rol:'campo',
+  tx:'Robáis en vuestra área y arrancas con cuarenta metros por delante y dos compañeros llegando.',
+  opts:['Conducir hasta el final','Soltarla pronto y llegar','Abrir a la banda']},
+ {n:'Uno contra uno en la banda',rol:'campo',
+  tx:'Te la dan en la esquina con el lateral encima y el partido igualado. Todo el estadio de pie.',
+  opts:['Salir por fuera','Recortar hacia dentro','Buscar la falta']},
+ {n:'El remate de cabeza',rol:'campo',
+  tx:'Falta lateral colgada al área. Te toca elegir dónde atacar el balón.',
+  opts:['Salir al primer palo','Aguantar en el punto de penalti','Descolgarte al segundo']},
+ {n:'La salida del portero',rol:'portero',
+  tx:'Balón largo a la espalda de tus centrales y su delantero saliendo en carrera.',
+  opts:['Salir del área a cortarla','Quedarte y achicar','Esperar en la línea']},
+ {n:'El tiro desde la frontal',rol:'portero',
+  tx:'Le pegan desde veinte metros con gente delante. No la ves salir hasta muy tarde.',
+  opts:['Adivinar el palo','Reaccionar tarde pero seguro','Salir a achicar el ángulo']}];
+function jugadaDeRonda(comp,ronda,rival,esVuelta){
+  const rol=(S.pos==='POR')?'portero':'campo';
+  let pool=JUGADAS_RONDA.filter(function(j){return j.rol===rol;});
+  const ult=S.ultimaJugadaRonda;
+  if(pool.length>2&&ult)pool=pool.filter(function(j){return j.n!==ult;});
+  const J=pick(pool);
+  S.ultimaJugadaRonda=J.n;
+  const correcta=rint(0,J.opts.length-1);
+  return{J:J,correcta:correcta};
+}
+/* Torneo por eliminatorias, ronda a ronda y con decisión en cada una */
+function torneoEliminatorio(comp,rondas,pool,prestigio,alTerminar){
+  let idx=0,vivo=true;
+  const historial=[];
+  function carta(){
+    const r=rondas[idx];
+    const objetivo=clamp(prestigio-10+idx*5+rnd(-6,6),24,97);
+    let cand=pool.filter(function(c){return Math.abs(c.p-objetivo)<=9;});
+    if(!cand.length)cand=pool;
+    const riv=pick(cand);
+    const jd=jugadaDeRonda(comp,r,riv.n);
+    /* cuanto mejor eres respecto al rival, más margen: si fallas la jugada
+       todavía puedes pasar, pero es una moneda al aire */
+    const ventaja=clamp((prestigio-riv.p)/22,-.34,.34);
+    return{eyebrow:comp+' · '+r,tipo:'neu',
+      titulo:r+' contra '+riv.n,
+      texto:jd.J.tx,
+      html:'<div class="riesgo"><div class="tit">La eliminatoria</div>'+
+        '<div class="escudo-fila" style="margin-top:6px">'+escudoSVG(riv.n,38)+
+        '<div><span class="club">'+esc(riv.n)+'</span><span class="liga">prestigio '+Math.round(riv.p)+
+        ' · tú '+Math.round(prestigio)+'</span></div></div>'+
+        '<p class="aviso">Las tres tienen la misma probabilidad. Si aciertas pasas seguro; si fallas, dependes de lo que valga tu equipo.</p></div>',
+      opciones:jd.J.opts.map(function(t,i){
+        return{t:t,d:'',f:function(){
+          const bien=(i===jd.correcta);
+          const pasa=bien?true:chance(clamp(.34+ventaja,.10,.62));
+          historial.push({ronda:r,rival:riv.n,bien:bien,pasa:pasa});
+          if(!S.rondasJugadas)S.rondasJugadas=[];
+          S.rondasJugadas.push({temp:et(S.anio),comp:comp,ronda:r,bien:bien,pasa:pasa});
+          if(pasa&&idx<rondas.length-1){
+            idx++;
+            COLA.unshift(carta());
+            return{txt:(bien?'Sale. ':'No sale como querías, pero el equipo tira del partido y ')+
+              'pasáis a '+rondas[idx]+'.',ef:bien?{moral:rint(3,7),relAfi:rint(2,5)}:{moral:rint(0,3)}};
+          }
+          if(pasa){
+            vivo=true;
+            if(alTerminar)alTerminar(true,historial);
+            return{txt:'Sale, y con eso os plantáis en la final de '+comp+'.',
+              ef:{moral:rint(6,11),relAfi:rint(4,9)}};
+          }
+          vivo=false;
+          if(alTerminar)alTerminar(false,historial);
+          return{txt:(bien?'Aciertas tú y aun así caéis: hay noches en las que no basta con hacerlo bien. '
+            :'La fallas y se acaba ahí. ')+'Fuera de '+comp+' en '+r+'.',
+            ef:{moral:-rint(6,12),relAfi:-rint(2,6)}};
+        }};
+      })};
+  }
+  return carta();
+}
+function poolCompeticion(esCopa,ligaId,club){
+  const lg=LIGA[ligaId||'esp1']||LIGA.esp1;
+  const out=[];
+  LIGAS.forEach(function(L){
+    if(esCopa?(L.pais!==lg.pais):(L.cont!==lg.cont||L.nivel>2))return;
+    L.clubes.forEach(function(c){if(c.n!==club)out.push({n:c.n,p:prestigioDe(c.n,c.p)});});
+  });
+  return out.length>=6?out:todosLosClubes().filter(function(c){return c.n!==club;});
+}
+
+
+/* =====================================================================
+   VERANOS CON LEYENDA — quien te enseña marca cómo juegas
+   ---------------------------------------------------------------------
+   Uno de cada tres veranos aparece alguien que ya lo hizo todo y se ofrece a
+   trabajar contigo. No es un punto más: es un mes con un tipo que sabe algo
+   que tú no, y lo que te deja se nota en cómo juegas el resto de tu carrera.
+   ===================================================================== */
+const LEYENDAS=[
+ {n:'un nueve de los de antes',pos:['DC'],k:'tir',sube:[2.4,4.2],
+  tit:'Un mes con un nueve de los de antes',
+  tx:'Se presenta en la ciudad deportiva con una bolsa de plástico y unas botas de hace veinte años. No te enseña a rematar: te enseña a saber dónde va a caer el balón tres segundos antes de que caiga. Cuarenta minutos al día, sin hablar apenas.',
+  cierre:'Te vas del último entrenamiento sabiendo que has aprendido algo que no se puede explicar a nadie.'},
+ {n:'un interior de los que pensaban',pos:['MC','MCO','MCD'],k:'pas',sube:[2.2,4.0],
+  tit:'El verano del que jugaba a otra velocidad',
+  tx:'Tiene sesenta años y sigue viendo la jugada antes que tú. Te pone tres conos y te pasa una hora corrigiéndote hacia dónde miras antes de recibir. "El pase empieza en el cuello, no en el pie".',
+  cierre:'Empiezas a ver pases que hace dos meses no existían.'},
+ {n:'un central que no corría',pos:['DFC','MCD','LTD','LTI'],k:'def',sube:[2.3,4.1],
+  tit:'El central que nunca tuvo que correr',
+  tx:'Jugó quince años al máximo nivel siendo lento. Te lleva a la grada, te sienta y te hace ver partidos enteros mirando solo dónde está él. "Defender es adivinar. Y adivinar es haber visto esto mil veces".',
+  cierre:'Vuelves llegando antes a sitios donde antes llegabas tarde.'},
+ {n:'un portero de los locos',pos:['POR'],k:'def',sube:[2.4,4.2],
+  tit:'Un mes con un portero de los antiguos',
+  tx:'Sin guantes las dos primeras semanas. "Si la paras sin guantes, con guantes la paras siempre". Acabas con las manos destrozadas y con una seguridad que no tenías.',
+  cierre:'Sales de ahí sabiendo que la pelota te va a doler y que no pasa nada.'},
+ {n:'un extremo imposible',pos:['ED','EI','MP'],k:'reg',sube:[2.2,3.9],
+  tit:'El extremo que regateaba andando',
+  tx:'No te hace correr ni un solo día. Te enseña a parar en seco, a mirar la cadera del defensa y a esperar. "El regate no es rapidez, es que él se equivoque antes que tú".',
+  cierre:'Ahora encaras más despacio y pasas más veces.'},
+ {n:'un preparador de leyenda',pos:null,k:'atl',sube:[2.5,4.3],
+  tit:'El preparador que alargó veinte carreras',
+  tx:'Ha estirado la carrera de media docena de jugadores que deberían haberse retirado a los treinta. No te hace correr más: te cambia cómo duermes, cómo comes y cómo frenas. Sobre todo cómo frenas.',
+  cierre:'El cuerpo te va a durar más años de los que te tocaban.'},
+ {n:'alguien que lo perdió todo',pos:null,k:'men',sube:[2.0,3.6],
+  tit:'El verano con el que lo tiró todo por la borda',
+  tx:'Fue mejor que tú y a los veintiséis ya no jugaba. No te entrena: te cuenta, con una calma que da miedo, cada decisión que tomó mal y en qué orden. No te da consejos. Solo te lo cuenta.',
+  cierre:'No has mejorado en nada que se vea. Has mejorado en lo otro.'}];
+function veranoLeyenda(){
+  if(!S||S.sinCarrera||S.retirado)return null;
+  if(S.veranoTemp===et(S.anio))return null;
+  if(S.edad<18||S.edad>32)return null;
+  if(!S.leyendasVistas)S.leyendasVistas=[];
+  const disp=LEYENDAS.filter(function(L){
+    if(S.leyendasVistas.indexOf(L.tit)>=0)return false;
+    if(L.pos&&L.pos.indexOf(S.pos)<0)return false;
+    return true;
+  });
+  if(!disp.length)return null;
+  const L=pick(disp);
+  S.veranoTemp=et(S.anio);
+  S.leyendasVistas.push(L.tit);
+  return{eyebrow:'Pretemporada '+et(S.anio)+' · una llamada',tipo:'pos',riesgo:true,
+    titulo:L.tit,texto:L.tx,
+    html:'<div class="riesgo"><div class="tit">Lo que te ofrece</div>'+
+      '<div class="cambio-row"><span class="rg-lab">Trabaja</span><span><b class="o">'+
+      esc(({tir:'Finalización',pas:'Última pasada',def:'Lectura defensiva',
+        reg:'Regate',atl:'Cuerpo y durabilidad',men:'Cabeza'})[L.k])+'</b></span></div>'+
+      '<div class="cambio-row"><span class="rg-lab">Tu nivel ahora</span><span>'+Math.round((S.attr&&S.attr[L.k])||60)+'</span></div>'+
+      '<p class="aviso">Un mes entero. Sube más que cualquier pretemporada normal y solo pasa una vez con cada uno.</p></div>',
+    opciones:[
+     {t:'Decirle que sí',d:'Un mes con él, sin vacaciones.',
+      rng:{media:[L.sube[0]*.4,L.sube[1]*.55],fis:[-3,1]},
+      f:function(){
+        const sube=rnd(L.sube[0],L.sube[1]);
+        if(!S.attr)S.attr={};
+        S.attr[L.k]=clamp((S.attr[L.k]||60)+sube,20,99);
+        S.media=mediaDe(S);
+        if(!S.veranos)S.veranos=[];
+        S.veranos.push({temp:et(S.anio),k:L.k,sube:Math.round(sube*10)/10,leyenda:true});
+        if(!S.mentores)S.mentores=[];
+        S.mentores.push({temp:et(S.anio),n:L.n,k:L.k});
+        return{txt:L.cierre+' Has subido '+sube.toFixed(1)+' puntos y tu media queda en '+Math.round(S.media)+'.',
+          ef:{fis:rint(-2,1),moral:rint(4,9),foco:rint(2,6)}};
+      }},
+     {t:'Descansar este verano',d:'Llevas once meses sin parar.',
+      rng:{fis:[2,6],moral:[0,4]},
+      f:function(){return{txt:'Le dices que no y te vas tres semanas donde nadie te conoce. Llegas a agosto entero, que también vale.',
+        ef:{fis:rint(2,6),moral:rint(0,4),foco:rint(3,7)}};}}]};
+}
+function bloqueMentores(){
+  if(!S||!S.mentores||!S.mentores.length)return '';
+  return '<div class="riesgo" style="margin-top:12px"><div class="tit">Quién te enseñó</div>'+
+    S.mentores.map(function(m){
+      return '<div class="cambio-row"><span class="rg-lab">'+esc(m.temp)+'</span><span>'+esc(m.n)+'</span></div>';
+    }).join('')+'</div>';
 }
 
 /* Promesas dichas en rueda de prensa que se cobran más tarde */
@@ -4821,7 +5083,7 @@ function nuevoJugador(nombre,dorsal,pos,pos2,nacion,pie,dif,rasgos){
    dorsalDeseado:0,dorsalDueno:null,dorsalEspera:0,dorsalHistoria:[],dorsalesClub:[],clubAnteriorDorsal:'',senalesVistas:[],
    tempsPais:0,paisUltimo:'',selAnterior:null,legadoId:'',naturalizado:false,
    fatiga:0,fatigaPico:0,fatigaSuma:0,fatigaN:0,xp:0,xpTotal:0,xpHist:[],
-   momentoClave:null,momentoTempRes:null,momentosClave:[],momentosTemp:[],momentoTempTemp:'',rehab:null,veranos:[],veranoTemp:'',carinoPais:55,selTorneosN:0,pendienteMundial:false,
+   momentoClave:null,momentoTempRes:null,rondasJugadas:[],ultimaJugadaRonda:'',momentosClave:[],momentosTemp:[],momentoTempTemp:'',rehab:null,veranos:[],veranoTemp:'',mentores:[],leyendasVistas:[],carinoPais:55,selTorneosN:0,pendienteMundial:false,
    negocios:[],instalaciones:{},sucArqVistos:[],promesasPrensa:[],prensa:50,preguntasVistas:[],negMult:{},hitos:{},deudaPersonal:0,
    egoP:clamp(34+rint(0,22),0,100),ambicion:clamp(44+rint(0,24),0,100),
    elite:[],mejorRanking:99,rankings:[],oncesMundiales:[],prestigioClubes:{},clubPuntos:{},gestas:[],
@@ -6095,7 +6357,8 @@ function tramoPrimero(){
   S.cupoVest=chance(.11)?1:0;
   /* Algunos veranos toca elegir en qué trabajar */
   if(chance(.55)){
-    const cv=cartaPretemporada();
+    /* Uno de cada tres veranos aparece una leyenda; el resto, trabajo normal */
+    const cv=chance(.34)?(veranoLeyenda()||cartaPretemporada()):cartaPretemporada();
     if(cv)COLA.unshift(cv);
   }   /* como mucho una historia de vestuario al año, y no todos los años */
   const f=estimaTramo();
@@ -6163,8 +6426,17 @@ function tramoFinal(){
   S.momentoClave=null;S.momentoTempRes=null;
   const compFinal=hayFinal();
   if(compFinal){
-    COLA.unshift(momentoClaveCard(compFinal));
-    COLA.unshift(cartaCamino(compFinal));
+    /* Ya no se llega a la final por sorteo: hay que pasar las eliminatorias
+       decidiendo en cada una. Si caes antes, no hay final. */
+    const esCopa=(compFinal==='la Copa');
+    const rondas=esCopa?['Octavos','Cuartos','Semifinal']:['Octavos','Cuartos','Semifinal'];
+    const pool=poolCompeticion(esCopa,S.ligaId,S.club);
+    COLA.unshift(torneoEliminatorio(compFinal,rondas,pool,S.clubPrestigio,function(llego){
+      if(llego){
+        COLA.unshift(momentoClaveCard(compFinal));
+        COLA.unshift(cartaCamino(compFinal));
+      }
+    }));
   } else {
     const mt=momentoDeTemporada();
     if(mt)COLA.unshift(mt);
@@ -7927,7 +8199,7 @@ function pantallaFinal(){
    bloqueHomenaje()+
    '<div class="seccion"><div class="seccion-tit"><h2>'+clubes.length+' clubes · '+ligasJ.length+' ligas</h2></div><ul class="palmares">'+
    ligasJ.map(l=>'<li>'+l+' <span></span></li>').join('')+'</ul></div>'+
-   '<div class="seccion"><div class="seccion-tit"><h2>Temporada a temporada</h2></div><div style="overflow-x:auto"><table class="tabla">'+
+   '<div class="seccion"><div class="seccion-tit"><h2>Temporada a temporada</h2></div><div class="tabla-scroll"><table class="tabla">'+
    '<thead><tr><th>Temp.</th><th>Ed.</th><th>Club</th><th>PJ</th><th>G</th><th>A</th><th>Nota</th><th>Med.</th></tr></thead><tbody>'+filasHistorial()+'</tbody></table></div></div>'+
    (S.dorsalRetirado?'<div class="seccion"><div class="seccion-tit"><h2>Dorsal retirado</h2><span class="eyebrow">'+
      esc(S.dorsalRetirado.club)+'</span></div><div class="tarjeta"><div class="escudo-fila">'+escudoSVG(S.dorsalRetirado.club,44)+
@@ -8777,7 +9049,7 @@ function bloquePersonalidad(){
   else if(a<40&&e<40)tipo='Se deja llevar';
   return '<div class="tarjeta"><div class="eyebrow">Quién eres</div>'+
     '<h3 style="font-size:18px">'+tipo+'</h3>'+
-    bloqueArquetipo()+barra(e,etE,'Ego')+barra(a,etA,'Ambición')+barra(f,etF,'Concentración')+
+    bloqueArquetipo()+bloqueMentores()+barra(e,etE,'Ego')+barra(a,etA,'Ambición')+barra(f,etF,'Concentración')+
     (S.xpHist&&S.xpHist.length?('<div class="eyebrow" style="margin-top:12px">Experiencia ganada</div>'+
       '<div class="grid g4" style="margin-top:8px">'+
       cel(S.xpTotal||0,'Total','ambar')+cel(S.xp||0,'Última temporada')+
@@ -10686,7 +10958,7 @@ const MatchEngine=(function(){
     if(!est||!est.partidos.length)return '';
     const ult=est.partidos.slice(-(maxFilas||8)).reverse();
     const col={V:'var(--ok)',E:'var(--cal2)',D:'var(--mal)'};
-    return '<div style="overflow-x:auto"><table class="tabla">'+
+    return '<div class="tabla-scroll"><table class="tabla">'+
       '<thead><tr><th>J</th><th>Partido</th><th>Res.</th><th>Min</th><th>G</th><th>A</th><th>Nota</th></tr></thead><tbody>'+
       ult.map(function(r){
         const marc=r.casa?(r.gf+'-'+r.gc):(r.gc+'-'+r.gf);
@@ -11977,8 +12249,11 @@ function migrarJugador(s){
   if(!s.momentosClave)s.momentosClave=[];
   if(!s.momentosTemp)s.momentosTemp=[];
   if(s.momentoTempRes===undefined)s.momentoTempRes=null;
+  if(!s.rondasJugadas)s.rondasJugadas=[];
   if(s.rehab===undefined)s.rehab=null;
   if(!s.veranos)s.veranos=[];
+  if(!s.mentores)s.mentores=[];
+  if(!s.leyendasVistas)s.leyendasVistas=[];
   if(s.carinoPais===undefined)s.carinoPais=55;
   if(s.selTorneos===undefined)s.selTorneosN=0;
   if(!s.negocios)s.negocios=[];
